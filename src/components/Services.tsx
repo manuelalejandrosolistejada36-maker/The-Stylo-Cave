@@ -6,7 +6,7 @@ interface ServiceData {
 }
 
 const ServiceItem: FC<ServiceData> = ({ title, description }) => (
-    <div className="w-full md:w-1/3 p-4">
+    <div className="p-0">
         <div className="border-b-2 border-gray-200 pb-4">
             <h3 className="text-lg font-bold uppercase text-gray-800 mb-1">{title}</h3>
             <p className="text-sm text-gray-500">{description}</p>
@@ -34,7 +34,7 @@ const Services: FC = () => {
                     ¿Qué servicios ofrecemos?
                 </p>
                 
-                <div className="flex flex-wrap -mx-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10">
                     {servicesData.map((service, index) => (
                         // La key debe ser única. Usar el índice es aceptable si la lista es estática.
                         <ServiceItem key={index} title={service.title} description={service.description} />
