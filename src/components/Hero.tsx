@@ -19,10 +19,9 @@ const Hero: FC = () => {
         </p>
         <div className="mt-4 sm:mt-6 flex space-x-3 sm:space-x-4">
         <Link 
-            href={whatsappLink} 
-            target="_blank" rel="noopener noreferrer" 
+            href="/cita" 
             className="bg-transparent border border-white text-white py-2 px-4 sm:py-2 sm:px-6 text-xs sm:text-sm uppercase tracking-widest hover:bg-white hover:text-black transition duration-300">
-                Reserva Ahora
+                Reserva Cita
         </Link>
         </div>
       </div>
