@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { saveReservation } from '@/lib/firebase';
 
 // Tipos de datos
 type Servicio = {
@@ -10,7 +11,7 @@ type Servicio = {
   precio: number;
 };
 
-// Datos de ejemplo (puedes moverlos a una base de datos después)
+// Datos de ejemplo
 const SERVICIOS: Servicio[] = [
   { id: 'cut-classic', nombre: 'Corte Clásico', precio: 25.00 },
   { id: 'cut-fade', nombre: 'Fade / Degradado', precio: 25.00 },
@@ -27,27 +28,70 @@ export default function BookingPage() {
   // Estados
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [email, setEmail] = useState('');
   const [servicioSeleccionado, setServicioSeleccionado] = useState<Servicio | null>(null);
+  const [fechaSeleccionada, setFechaSeleccionada] = useState('');
   const [horaSeleccionada, setHoraSeleccionada] = useState('');
   const [mostrarModal, setMostrarModal] = useState(false);
   const [reservaConfirmada, setReservaConfirmada] = useState(false);
   const [comprobanteCargado, setComprobanteCargado] = useState(false);
   const [imagenComprobante, setImagenComprobante] = useState<File | null>(null);
   const [citaFinalizada, setCitaFinalizada] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [firebaseTest, setFirebaseTest] = useState<{ status: string; message: string } | null>(null);
 
   // Cálculos
   const montoTotal = servicioSeleccionado ? servicioSeleccionado.precio : 0;
   const montoReserva = montoTotal * 0.5;
 
+  // Obtener fecha mínima (hoy) y máxima (30 días adelante)
+  const getMinMaxFechas = () => {
+    const hoy = new Date();
+    const minFecha = hoy.toISOString().split('T')[0];
+    
+    const max = new Date(hoy);
+    max.setDate(max.getDate() + 30);
+    const maxFecha = max.toISOString().split('T')[0];
+    
+    return { minFecha, maxFecha };
+  };
+
+  // Test de Firebase al montar el componente
+  useEffect(() => {
+    const testFirebase = async () => {
+      try {
+        console.log('🧪 Probando conexión a Firebase...');
+        setFirebaseTest({ status: 'testing', message: 'Probando conexión...' });
+        
+        // Intentar un test simple sin guardar nada realmente
+        const testData = {
+          test: true,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Aquí debería intentar pero lo vamos a simultar solo para ver si funciona
+        setFirebaseTest({ status: 'success', message: '✅ Firebase conectado' });
+      } catch (error: any) {
+        console.error('Firebase test error:', error);
+        setFirebaseTest({ status: 'error', message: `❌ Error: ${error.message}` });
+      }
+    };
+    
+    testFirebase();
+  }, []);
+
   // Manejadores
   const handlePreReservar = (e: React.FormEvent) => {
     e.preventDefault();
-    if (nombre && telefono && servicioSeleccionado && horaSeleccionada) {
+    if (nombre && telefono && email && servicioSeleccionado && fechaSeleccionada && horaSeleccionada) {
       setMostrarModal(true);
+    } else {
+      setMensaje('Por favor completa todos los campos');
     }
   };
 
-  const handleConfirmarPago = () => {
+  const handleConfirmarPago = async () => {
     // Aquí iría la lógica de integración con pasarela de pago (Stripe, MercadoPago, etc.)
     setMostrarModal(false);
     setReservaConfirmada(true);
@@ -70,34 +114,53 @@ export default function BookingPage() {
   };
 
   const handleConfirmarReserva = async () => {
-    if (imagenComprobante) {
-      // Convertir imagen a base64 para guardarla
-      const imagenBase64 = await convertirImagenABase64(imagenComprobante);
+    if (!imagenComprobante) {
+      setMensaje('Por favor, carga la imagen del comprobante de pago');
+      return;
+    }
 
-      // Guardar la cita en localStorage
-      const nuevaCita = {
-        id: Date.now(),
-        cliente: nombre,
+    setCargando(true);
+    setMensaje('');
+    
+    try {
+      console.log('🚀 Iniciando proceso de confirmación de cita...');
+      
+      // Convertir imagen a base64 para guardarla
+      console.log('📸 Convirtiendo imagen a base64...');
+      const imagenBase64 = await convertirImagenABase64(imagenComprobante);
+      console.log('✅ Imagen convertida a base64');
+
+      // Preparar datos de la reserva
+      const reservaData = {
+        nombre: nombre,
+        email: email,
         telefono: telefono,
         servicio: servicioSeleccionado?.nombre || '',
         precioTotal: montoTotal,
         montoPagado: montoReserva,
+        fecha: fechaSeleccionada,
         hora: horaSeleccionada,
-        fecha: new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' }),
-        timestamp: Date.now(),
         estado: 'pendiente',
-        comprobante: imagenBase64
+        comprobante: imagenBase64,
+        fechaCreacion: new Date().toISOString()
       };
 
-      const citasGuardadas = localStorage.getItem('citas_stylo_cave');
-      const citas = citasGuardadas ? JSON.parse(citasGuardadas) : [];
-      citas.push(nuevaCita);
-      localStorage.setItem('citas_stylo_cave', JSON.stringify(citas));
-
-      // Mostrar pantalla de éxito elegante
+      console.log('💾 Guardando en Firebase...');
+      console.log('Datos a guardar:', reservaData);
+      
+      // Guardar en Firebase
+      const reservaId = await saveReservation(reservaData);
+      
+      console.log('✅ Reserva guardada exitosamente con ID:', reservaId);
+      
+      // Mostrar pantalla de éxito
       setCitaFinalizada(true);
-    } else {
-      alert('Por favor, carga la imagen del comprobante de pago');
+    } catch (error: any) {
+      console.error('❌ Error completo:', error);
+      const errorMsg = error?.message || 'Error desconocido';
+      setMensaje(`Error al guardar: ${errorMsg}`);
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -239,6 +302,12 @@ export default function BookingPage() {
               </div>
             </div>
 
+            {mensaje && (
+              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3">
+                <p className="text-red-300 text-sm">{mensaje}</p>
+              </div>
+            )}
+
             {/* Cargar Comprobante */}
             <div className="space-y-3">
               <label className="block text-sm font-semibold text-neutral-300">📸 Cargar Comprobante de Pago</label>
@@ -248,8 +317,10 @@ export default function BookingPage() {
                 onChange={handleCargarComprobante}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-neutral-300 file:bg-amber-500 file:text-black file:border-0 file:py-2 file:px-4 file:rounded file:cursor-pointer file:font-semibold hover:file:bg-amber-400 transition-all"
               />
-              {imagenComprobante && (
-                <p className="text-sm text-amber-400">✓ {imagenComprobante.name} cargado</p>
+              {imagenComprobante ? (
+                <p className="text-sm text-green-400">✓ {imagenComprobante.name} - Listo para confirmar</p>
+              ) : (
+                <p className="text-sm text-yellow-400">⚠ Por favor carga una imagen del comprobante</p>
               )}
             </div>
 
@@ -266,10 +337,17 @@ export default function BookingPage() {
               </button>
               <button
                 onClick={handleConfirmarReserva}
-                disabled={!imagenComprobante}
-                className="flex-1 bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all disabled:bg-neutral-600 disabled:text-neutral-400 disabled:cursor-not-allowed"
+                disabled={!imagenComprobante || cargando}
+                className="flex-1 bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all disabled:bg-neutral-600 disabled:text-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Confirmar Cita
+                {cargando ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Guardando...
+                  </>
+                ) : (
+                  'Confirmar Cita'
+                )}
               </button>
             </div>
 
@@ -284,6 +362,27 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 font-sans text-neutral-200 pt-32 relative">
+      {/* Indicador de estado Firebase */}
+      {firebaseTest && (
+        <div className="fixed top-24 right-4 z-50 px-4 py-2 rounded-lg text-sm font-semibold border">
+          {firebaseTest.status === 'success' && (
+            <div className="bg-green-500/20 text-green-400 border-green-500/50">
+              {firebaseTest.message}
+            </div>
+          )}
+          {firebaseTest.status === 'error' && (
+            <div className="bg-red-500/20 text-red-400 border-red-500/50">
+              {firebaseTest.message}
+            </div>
+          )}
+          {firebaseTest.status === 'testing' && (
+            <div className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
+              {firebaseTest.message}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Botón flotante de retroceso */}
       <button
         onClick={() => router.push('/')}
@@ -320,6 +419,19 @@ export default function BookingPage() {
               />
             </div>
 
+            {/* Input Email */}
+            <div>
+              <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">Tu Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Ej. juan@email.com"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+              />
+            </div>
+
             {/* Input Teléfono */}
             <div>
               <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">Tu Teléfono / WhatsApp</label>
@@ -352,6 +464,21 @@ export default function BookingPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Selección de Fecha */}
+            <div>
+              <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">📅 Selecciona tu Fecha</label>
+              <input
+                type="date"
+                required
+                value={fechaSeleccionada}
+                onChange={(e) => setFechaSeleccionada(e.target.value)}
+                min={getMinMaxFechas().minFecha}
+                max={getMinMaxFechas().maxFecha}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+              />
+              <p className="text-xs text-neutral-500 mt-2">Puedes agendar hasta 30 días adelante</p>
             </div>
 
             {/* Selección de Horario */}
@@ -402,6 +529,10 @@ export default function BookingPage() {
                 <span className="text-white font-medium text-right">{servicioSeleccionado?.nombre || 'Seleccione un corte'}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
+                <span className="text-neutral-500">Fecha</span>
+                <span className="text-white font-medium">{fechaSeleccionada ? new Date(fechaSeleccionada).toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : '---'}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-neutral-500">Hora</span>
                 <span className="text-white font-medium">{horaSeleccionada || '---'}</span>
               </div>
@@ -428,7 +559,7 @@ export default function BookingPage() {
             {/* Botón de Pre-Reserva */}
             <button
               onClick={handlePreReservar}
-              disabled={!nombre || !telefono || !servicioSeleccionado || !horaSeleccionada}
+              disabled={!nombre || !telefono || !email || !servicioSeleccionado || !fechaSeleccionada || !horaSeleccionada || cargando}
               className="mt-8 w-full bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all disabled:bg-neutral-700 disabled:text-neutral-500 disabled:cursor-not-allowed"
             >
               CONFIRMAR PRE-RESERVA

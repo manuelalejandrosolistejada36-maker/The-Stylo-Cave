@@ -2,19 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getReservations, deleteReservation, database, ref, update } from '@/lib/firebase';
 
 type Cita = {
-  id: number;
-  cliente: string;
+  id?: string;
+  nombre: string;
+  email: string;
   telefono: string;
   servicio: string;
   precioTotal: number;
   montoPagado: number;
   hora: string;
   fecha: string;
-  timestamp: number;
   estado: 'pendiente' | 'aceptada' | 'completada' | 'cancelada' | 'no-vino';
   comprobante: string;
+  fechaCreacion?: string;
 };
 
 export default function AdminDashboard() {
@@ -24,11 +26,11 @@ export default function AdminDashboard() {
   const [citas, setCitas] = useState<Cita[]>([]);
   const [errorPassword, setErrorPassword] = useState('');
   const [comprobanteModal, setComprobanteModal] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
 
-  // Cargar las citas al iniciar y limpiar las antiguas (más de 24 horas)
+  // Cargar las citas al iniciar
   useEffect(() => {
     if (autenticado) {
-      limpiarCitasAntiguas();
       cargarCitas();
       // Actualizar cada 30 segundos
       const interval = setInterval(cargarCitas, 30000);
@@ -47,26 +49,24 @@ export default function AdminDashboard() {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [comprobanteModal]);
 
-  const limpiarCitasAntiguas = () => {
-    const data = localStorage.getItem('citas_stylo_cave');
-    if (data) {
-      const todasLasCitas = JSON.parse(data);
-      const ahora = Date.now();
-      const unDiaEnMs = 24 * 60 * 60 * 1000;
-      
-      // Filtrar citas que tengan menos de 24 horas
-      const citasValidas = todasLasCitas.filter((cita: Cita) => {
-        return (ahora - cita.timestamp) < unDiaEnMs;
-      });
-      
-      localStorage.setItem('citas_stylo_cave', JSON.stringify(citasValidas));
-    }
-  };
-
-  const cargarCitas = () => {
-    const data = localStorage.getItem('citas_stylo_cave');
-    if (data) {
-      setCitas(JSON.parse(data));
+  const cargarCitas = async () => {
+    try {
+      setCargando(true);
+      const datos = await getReservations();
+      if (datos) {
+        // Convertir objeto a array
+        const citasArray = Object.entries(datos).map(([id, data]: [string, any]) => ({
+          id,
+          ...data
+        }));
+        setCitas(citasArray);
+      } else {
+        setCitas([]);
+      }
+    } catch (error) {
+      console.error('Error al cargar citas:', error);
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -83,20 +83,35 @@ export default function AdminDashboard() {
   };
 
   // Cambiar estado de la cita
-  const cambiarEstado = (id: number, nuevoEstado: Cita['estado']) => {
-    const citasActualizadas = citas.map(cita => 
-      cita.id === id ? { ...cita, estado: nuevoEstado } : cita
-    );
-    setCitas(citasActualizadas);
-    localStorage.setItem('citas_stylo_cave', JSON.stringify(citasActualizadas));
+  const cambiarEstado = async (id: string | undefined, nuevoEstado: Cita['estado']) => {
+    if (!id) return;
+    
+    try {
+      const reservationRef = ref(database, `reservations/${id}`);
+      await update(reservationRef, {
+        estado: nuevoEstado
+      });
+      
+      // Actualizar localmente
+      const citasActualizadas = citas.map(cita => 
+        cita.id === id ? { ...cita, estado: nuevoEstado } : cita
+      );
+      setCitas(citasActualizadas);
+    } catch (error) {
+      console.error('Error al actualizar cita:', error);
+    }
   };
 
   // Eliminar cita
-  const eliminarCita = (id: number) => {
-    if (confirm('¿Estás seguro de eliminar esta cita?')) {
+  const eliminarCita = async (id: string | undefined) => {
+    if (!id || !confirm('¿Estás seguro de eliminar esta cita?')) return;
+    
+    try {
+      await deleteReservation(id);
       const nuevasCitas = citas.filter(c => c.id !== id);
       setCitas(nuevasCitas);
-      localStorage.setItem('citas_stylo_cave', JSON.stringify(nuevasCitas));
+    } catch (error) {
+      console.error('Error al eliminar cita:', error);
     }
   };
 
@@ -268,7 +283,7 @@ export default function AdminDashboard() {
                 {/* Header de la cita */}
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h4 className="text-lg font-bold text-white">{cita.cliente}</h4>
+                    <h4 className="text-lg font-bold text-white">{cita.nombre}</h4>
                     <a 
                       href={`https://wa.me/51${cita.telefono}`}
                       target="_blank"
