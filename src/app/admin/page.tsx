@@ -102,6 +102,23 @@ export default function AdminDashboard() {
     }
   };
 
+  // Enviar mensaje de WhatsApp personalizado
+  const enviarWhatsApp = (cita: Cita) => {
+    const mensaje = encodeURIComponent(
+      `Hola ${cita.nombre}! 👋\n\n` +
+      `Tu cita ha sido confirmada ✅\n\n` +
+      `📋 Detalles:\n` +
+      `• Servicio: ${cita.servicio}\n` +
+      `• Fecha: ${cita.fecha}\n` +
+      `• Hora: ${cita.hora}\n` +
+      `• Total a pagar: $${cita.precioTotal.toFixed(2)}\n\n` +
+      `¡Te esperamos en THE STYLO CAVE! 💈`
+    );
+    
+    // Abrir WhatsApp con el mensaje
+    window.open(`https://wa.me/51${cita.telefono}?text=${mensaje}`, '_blank');
+  };
+
   // Eliminar cita
   const eliminarCita = async (id: string | undefined) => {
     if (!id || !confirm('¿Estás seguro de eliminar esta cita?')) return;
@@ -333,16 +350,24 @@ export default function AdminDashboard() {
                 {/* Botones de Acción */}
                 <div className="space-y-2">
                   {cita.estado === 'pendiente' && (
-                    <button 
-                      onClick={() => cambiarEstado(cita.id, 'aceptada')}
-                      className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all text-sm font-semibold"
-                    >
-                      ✅ Aceptar Cita
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => cambiarEstado(cita.id, 'aceptada')}
+                        className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all text-sm font-semibold"
+                      >
+                        ✅ Aceptar Cita
+                      </button>
+                    </>
                   )}
                   
                   {cita.estado === 'aceptada' && (
                     <>
+                      <button 
+                        onClick={() => enviarWhatsApp(cita)}
+                        className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-semibold flex items-center justify-center gap-2"
+                      >
+                        💬 Enviar WhatsApp
+                      </button>
                       <button 
                         onClick={() => cambiarEstado(cita.id, 'completada')}
                         className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all text-sm font-semibold"

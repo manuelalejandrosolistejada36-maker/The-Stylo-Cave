@@ -28,7 +28,6 @@ export default function BookingPage() {
   // Estados
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
-  const [email, setEmail] = useState('');
   const [servicioSeleccionado, setServicioSeleccionado] = useState<Servicio | null>(null);
   const [fechaSeleccionada, setFechaSeleccionada] = useState('');
   const [horaSeleccionada, setHoraSeleccionada] = useState('');
@@ -39,7 +38,6 @@ export default function BookingPage() {
   const [citaFinalizada, setCitaFinalizada] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
-  const [firebaseTest, setFirebaseTest] = useState<{ status: string; message: string } | null>(null);
 
   // Cálculos
   const montoTotal = servicioSeleccionado ? servicioSeleccionado.precio : 0;
@@ -57,34 +55,10 @@ export default function BookingPage() {
     return { minFecha, maxFecha };
   };
 
-  // Test de Firebase al montar el componente
-  useEffect(() => {
-    const testFirebase = async () => {
-      try {
-        console.log('🧪 Probando conexión a Firebase...');
-        setFirebaseTest({ status: 'testing', message: 'Probando conexión...' });
-        
-        // Intentar un test simple sin guardar nada realmente
-        const testData = {
-          test: true,
-          timestamp: new Date().toISOString()
-        };
-        
-        // Aquí debería intentar pero lo vamos a simultar solo para ver si funciona
-        setFirebaseTest({ status: 'success', message: '✅ Firebase conectado' });
-      } catch (error: any) {
-        console.error('Firebase test error:', error);
-        setFirebaseTest({ status: 'error', message: `❌ Error: ${error.message}` });
-      }
-    };
-    
-    testFirebase();
-  }, []);
-
   // Manejadores
   const handlePreReservar = (e: React.FormEvent) => {
     e.preventDefault();
-    if (nombre && telefono && email && servicioSeleccionado && fechaSeleccionada && horaSeleccionada) {
+    if (nombre && telefono && servicioSeleccionado && fechaSeleccionada && horaSeleccionada) {
       setMostrarModal(true);
     } else {
       setMensaje('Por favor completa todos los campos');
@@ -133,7 +107,6 @@ export default function BookingPage() {
       // Preparar datos de la reserva
       const reservaData = {
         nombre: nombre,
-        email: email,
         telefono: telefono,
         servicio: servicioSeleccionado?.nombre || '',
         precioTotal: montoTotal,
@@ -362,27 +335,6 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 font-sans text-neutral-200 pt-32 relative">
-      {/* Indicador de estado Firebase */}
-      {firebaseTest && (
-        <div className="fixed top-24 right-4 z-50 px-4 py-2 rounded-lg text-sm font-semibold border">
-          {firebaseTest.status === 'success' && (
-            <div className="bg-green-500/20 text-green-400 border-green-500/50">
-              {firebaseTest.message}
-            </div>
-          )}
-          {firebaseTest.status === 'error' && (
-            <div className="bg-red-500/20 text-red-400 border-red-500/50">
-              {firebaseTest.message}
-            </div>
-          )}
-          {firebaseTest.status === 'testing' && (
-            <div className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">
-              {firebaseTest.message}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Botón flotante de retroceso */}
       <button
         onClick={() => router.push('/')}
@@ -415,19 +367,6 @@ export default function BookingPage() {
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 placeholder="Ej. Camilo Borja"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
-              />
-            </div>
-
-            {/* Input Email */}
-            <div>
-              <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">Tu Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Ej. juan@email.com"
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
               />
             </div>
@@ -559,7 +498,7 @@ export default function BookingPage() {
             {/* Botón de Pre-Reserva */}
             <button
               onClick={handlePreReservar}
-              disabled={!nombre || !telefono || !email || !servicioSeleccionado || !fechaSeleccionada || !horaSeleccionada || cargando}
+              disabled={!nombre || !telefono || !servicioSeleccionado || !fechaSeleccionada || !horaSeleccionada || cargando}
               className="mt-8 w-full bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all disabled:bg-neutral-700 disabled:text-neutral-500 disabled:cursor-not-allowed"
             >
               CONFIRMAR PRE-RESERVA
