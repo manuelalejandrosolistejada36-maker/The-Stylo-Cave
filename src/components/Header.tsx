@@ -24,13 +24,13 @@ const Header: FC = () => {
     return (
        <header className={`fixed top-0 left-0 right-0 z-30 transition-all duration-500 ease-in-out ${
            scrolled 
-               ? 'py-2 sm:py-3 text-gray-900' 
-               : 'py-4 sm:py-6 text-white'
+               ? 'py-4 sm:py-5 text-gray-900' 
+               : 'py-6 sm:py-8 text-white'
        }`}> 
     <div className={`mx-auto flex justify-between items-center transition-all duration-500 ease-in-out ${
         scrolled 
-            ? 'backdrop-blur-xl bg-white/15 border border-white/30 shadow-xl rounded-full px-4 sm:px-6 md:px-8 max-w-6xl' 
-            : 'px-2 sm:px-4 max-w-7xl'
+            ? 'backdrop-blur-xl bg-white/15 border border-white/30 shadow-xl rounded-full px-4 sm:px-6 md:px-8 py-2 sm:py-2 max-w-6xl' 
+            : 'px-4 sm:px-8 max-w-7xl'
     }`}>
         
         {/* 1. Navegación/Enlaces Principales */}

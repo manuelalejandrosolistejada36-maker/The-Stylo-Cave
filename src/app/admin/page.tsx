@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getReservations, deleteReservation, database, ref, update } from '@/lib/firebase';
+import { Eye, EyeOff } from 'lucide-react';
 
 type Cita = {
   id?: string;
@@ -162,59 +163,80 @@ export default function AdminDashboard() {
   };
 
   // --- VISTA DE LOGIN (SEGURIDAD) ---
-  if (!autenticado) {
-    return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
-        <div className="bg-neutral-900 p-8 rounded-2xl border border-amber-500/30 w-full max-w-md shadow-2xl shadow-amber-900/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500 blur-[100px] opacity-10 pointer-events-none"></div>
-          
-          <div className="relative z-10">
-            <div className="text-center mb-8">
-              <div className="text-5xl mb-4">🔐</div>
-              <h2 className="text-2xl font-bold font-serif text-amber-500 mb-2">Panel de Administración</h2>
-              <p className="text-neutral-400 text-sm">THE STYLO CAVE</p>
-            </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-neutral-300 mb-2">
-                  Contraseña de Acceso
-                </label>
+  const [showPassword, setShowPassword] = useState(false);
+
+  if (!autenticado) {
+  return (
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+      <div className="bg-neutral-900 p-8 rounded-2xl border border-amber-500/30 w-full max-w-md shadow-2xl shadow-amber-900/20 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500 blur-[100px] opacity-10 pointer-events-none"></div>
+        
+        <div className="relative z-10">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4">🔐</div>
+            <h2 className="text-2xl font-bold font-serif text-amber-500 mb-2">Panel de Administración</h2>
+            <p className="text-neutral-400 text-sm">THE STYLO CAVE</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-neutral-300 mb-2">
+                Contraseña de Acceso
+              </label>
+              
+              {/* Contenedor relativo para posicionar el icono */}
+              <div className="relative">
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setErrorPassword('');
                   }}
                   placeholder="Ingresa la contraseña"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 pr-10 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
                   autoFocus
                 />
-                {errorPassword && (
-                  <p className="text-red-400 text-sm mt-2">❌ {errorPassword}</p>
-                )}
+                
+                {/* Botón del icono */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-amber-500 transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
+                </button>
               </div>
 
-              <button 
-                type="submit"
-                className="w-full bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all"
-              >
-                Ingresar al Panel
-              </button>
-            </form>
+              {errorPassword && (
+                <p className="text-red-400 text-sm mt-2">❌ {errorPassword}</p>
+              )}
+            </div>
 
-            <button
-              onClick={() => router.push('/')}
-              className="w-full mt-4 text-neutral-500 hover:text-white text-sm underline transition-colors"
+            <button 
+              type="submit"
+              className="w-full bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all"
             >
-              ← Volver al inicio
+              Ingresar al Panel
             </button>
-          </div>
+          </form>
+
+          <button
+            onClick={() => router.push('/')}
+            className="w-full mt-4 text-neutral-500 hover:text-white text-sm underline transition-colors"
+          >
+            ← Volver al inicio
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // --- VISTA DEL DASHBOARD ---
   return (
