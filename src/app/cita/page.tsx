@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveReservation, getReservations } from '@/lib/firebase';
+import { sendNotification } from '@/app/actions/notifications';
 
 type Servicio = {
   id: string;
@@ -131,6 +132,10 @@ export default function BookingPage() {
       };
 
       await saveReservation(reservaData);
+      
+      // Enviar notificación ntfy.sh al manager
+      await sendNotification(reservaData);
+      
       setCitaFinalizada(true);
     } catch (error: any) {
       const errorMsg = error?.message || 'Error desconocido';
