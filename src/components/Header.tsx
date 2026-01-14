@@ -22,45 +22,38 @@ const Header: FC = () => {
     }, [scrolled]);
     
     return (
-       <header className={`fixed top-0 left-0 right-0 z-30 transition-all duration-500 ease-in-out ${
-           scrolled 
-               ? 'py-4 sm:py-5 text-gray-900' 
-               : 'py-6 sm:py-8 text-white'
-       }`}> 
-    <div className={`mx-auto flex justify-between items-center transition-all duration-500 ease-in-out ${
+       <header className={`fixed top-0 left-0 right-0 z-30 transition-all duration-500 ease-in-out py-3 sm:py-4 text-white`}> 
+    <div className={`mx-auto flex justify-between items-center transition-all duration-500 ease-in-out w-full gap-2 sm:gap-4 ${
         scrolled 
-            ? 'backdrop-blur-xl bg-white/15 border border-white/30 shadow-xl rounded-full px-4 sm:px-6 md:px-8 py-2 sm:py-2 max-w-6xl' 
-            : 'px-4 sm:px-8 max-w-7xl'
+            ? 'backdrop-blur-xl bg-white/5 border border-white/10 shadow-xl rounded-full px-4 sm:px-6 md:px-8 py-2 sm:py-3 max-w-6xl mx-4 sm:mx-auto' 
+            : 'px-4 sm:px-6 md:px-8 max-w-7xl'
     }`}>
         
-        {/* 1. Navegación/Enlaces Principales */}
-        <nav className={`flex space-x-1 sm:space-x-4 md:space-x-6 uppercase tracking-widest transition-all duration-300 ${
-            scrolled ? 'text-[0.55rem] sm:text-[0.65rem] md:text-xs text-gray-800' : 'text-[0.6rem] sm:text-xs md:text-sm text-white'
-        }`}>
-            <Link href="#about" className={`transition-colors duration-300 ${scrolled ? 'hover:text-amber-600' : 'hover:text-amber-400'}`}>
+        {/* Logo/Nombre */}
+        <Link href="/" className="text-white font-bold tracking-tight sm:tracking-widest text-[0.6rem] sm:text-sm md:text-lg hover:text-amber-500 transition-colors duration-300 whitespace-nowrap shrink-0">
+            THE STYLO <span className="text-amber-500">CAVE</span>
+        </Link>
+
+        {/* Navegación Central */}
+        <nav className="hidden md:flex space-x-6 uppercase tracking-widest text-[0.65rem] md:text-sm text-white grow">
+            <Link href="#about" className="hover:text-amber-500 transition-colors duration-300">
                 Quiénes Somos
             </Link>
-            <Link href="#services" className={`transition-colors duration-300 ${scrolled ? 'hover:text-amber-600' : 'hover:text-amber-400'}`}>
+            <Link href="#services" className="hover:text-amber-500 transition-colors duration-300">
                 Servicios
             </Link>
         </nav>
 
-        {/* 2. Navegación Derecha */}
-        <nav className={`flex space-x-1 sm:space-x-4 md:space-x-6 uppercase tracking-widest items-center transition-all duration-300 ${
-            scrolled ? 'text-[0.55rem] sm:text-[0.65rem] md:text-xs text-gray-800' : 'text-[0.6rem] sm:text-xs md:text-sm text-white'
-        }`}>
-            <Link href="/admin" className={`transition-colors duration-300 ${scrolled ? 'hover:text-amber-600' : 'hover:text-amber-400'}`}>
+        {/* Navegación Derecha */}
+        <nav className="flex space-x-2 sm:space-x-4 uppercase tracking-widest items-center text-[0.65rem] md:text-sm shrink-0">
+            <Link href="/admin" className="text-white hover:text-amber-500 transition-colors duration-300 hidden sm:block">
                 Manager
             </Link>
             <Link
-                href={whatsappLink}
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className={`text-white tracking-widest transition-all duration-300 ${
-                    scrolled ? 'bg-amber-600 hover:bg-amber-700 py-1.5 px-3 text-[0.55rem] sm:text-[0.65rem] rounded-full' : 'bg-amber-600 hover:bg-amber-700 py-2 px-2 text-[0.6rem] sm:text-xs'
-                }`}
+                href="/cita"
+                className="bg-amber-500 text-black font-bold py-2 px-3 sm:px-4 text-[0.65rem] sm:text-xs rounded-full hover:bg-amber-400 transition-all duration-300 hover:scale-105 whitespace-nowrap"
             >
-                RESERVA
+                Reserva
             </Link>
         </nav>
     </div>

@@ -3,26 +3,30 @@ import { FC } from 'react';
 
 const InYourWords: FC = () => {
     return (
-        <section className="relative h-[500px] w-full overflow-hidden">
-            {/* Imagen de Fondo (Barbero con el cliente) */}
-            <Image
-                src="/image/in-your-words-bg.jpg" // Necesitas esta imagen en /public
-                alt="Barbero y cliente conversando"
-                fill
-                style={{ objectFit: 'cover' }}
-                className="brightness-50" // Oscurece la imagen
-            />
+        <section className="relative min-h-[600px] w-full overflow-hidden bg-black flex items-center justify-center py-20">
+            {/* Fondo decorativo */}
+            <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-1/2 right-0 w-96 h-96 bg-amber-500 rounded-full blur-[150px] animate-pulse"></div>
+                <div className="absolute top-1/2 left-0 w-96 h-96 bg-amber-600 rounded-full blur-[150px]"></div>
+            </div>
             
-            {/* Contenido de la Cita */}
-            <div className="relative z-10 flex flex-col items-center justify-center h-full text-white p-4 text-center max-w-3xl mx-auto">
-                <h2 className="text-2xl font-bold uppercase tracking-widest mb-4">
-                    EN POCAS PALABRAS
-                </h2>
-                <span className="text-5xl font-serif mb-6 block">"</span>
-                <p className="text-3xl font-light italic leading-relaxed">
-                    Tú importas, y lo que tu piensas, es importante para nosotros.
+            {/* Contenido */}
+            <div className="relative z-10 flex flex-col items-center justify-center text-white p-4 text-center max-w-3xl w-full">
+                <div className="mb-6 sm:mb-8">
+                  <span className="inline-block text-6xl sm:text-6xl md:text-7xl font-serif text-amber-500 mb-4 sm:mb-6">"</span>
+                </div>
+                
+                <p className="text-2xl sm:text-2xl md:text-4xl font-light italic leading-relaxed mb-6 sm:mb-8 text-gray-100">
+                    Tú importas, y lo que tú piensas, es importante para nosotros.
                 </p>
-                <p className="text-xl mt-6">
+                
+                <div className="h-1 w-24 sm:w-32 bg-linear-to-r from-amber-500 to-amber-600 rounded-full my-6 sm:my-8"></div>
+                
+                <p className="text-lg sm:text-lg md:text-xl text-gray-300 mb-4 sm:mb-6">
+                    Creamos experiencias, no solo cortes.
+                </p>
+                
+                <p className="text-xs sm:text-sm text-gray-400 font-serif italic">
                     Nuestros servicios especiales son para ti.
                 </p>
             </div>

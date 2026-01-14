@@ -9,12 +9,11 @@ import { FC } from 'react';
 
 const Home: FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
       <Header />
       <main>
         <Hero />
         <WhoWeAre />
-        {/* Usaremos el componente Features.tsx para la sección de 3 columnas */}
         <Features /> 
         <InYourWords />
         <Services />

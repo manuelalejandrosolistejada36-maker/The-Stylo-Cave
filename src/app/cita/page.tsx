@@ -2,16 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveReservation } from '@/lib/firebase';
+import { saveReservation, getReservations } from '@/lib/firebase';
 
-// Tipos de datos
 type Servicio = {
   id: string;
   nombre: string;
   precio: number;
 };
 
-// Datos de ejemplo
 const SERVICIOS: Servicio[] = [
   { id: 'cut-classic', nombre: 'Corte Clásico', precio: 25.00 },
   { id: 'cut-fade', nombre: 'Fade / Degradado', precio: 25.00 },
@@ -25,7 +23,6 @@ const HORARIOS = [
 
 export default function BookingPage() {
   const router = useRouter();
-  // Estados
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [servicioSeleccionado, setServicioSeleccionado] = useState<Servicio | null>(null);
@@ -33,29 +30,53 @@ export default function BookingPage() {
   const [horaSeleccionada, setHoraSeleccionada] = useState('');
   const [mostrarModal, setMostrarModal] = useState(false);
   const [reservaConfirmada, setReservaConfirmada] = useState(false);
-  const [comprobanteCargado, setComprobanteCargado] = useState(false);
   const [imagenComprobante, setImagenComprobante] = useState<File | null>(null);
   const [citaFinalizada, setCitaFinalizada] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [horariosOcupados, setHorariosOcupados] = useState<string[]>([]);
 
-  // Cálculos
   const montoTotal = servicioSeleccionado ? servicioSeleccionado.precio : 0;
   const montoReserva = montoTotal * 0.5;
 
-  // Obtener fecha mínima (hoy) y máxima (30 días adelante)
+  // Cargar horarios ocupados cuando la fecha cambia
+  useEffect(() => {
+    const cargarHorariosOcupados = async () => {
+      if (!fechaSeleccionada) {
+        setHorariosOcupados([]);
+        return;
+      }
+      
+      try {
+        const reservas = await getReservations();
+        if (!reservas) {
+          setHorariosOcupados([]);
+          return;
+        }
+
+        const horariosDelDia = Object.values(reservas as any)
+          .filter((reserva: any) => reserva.fecha === fechaSeleccionada && reserva.estado !== 'cancelada')
+          .map((reserva: any) => reserva.hora);
+
+        setHorariosOcupados(horariosDelDia);
+      } catch (error) {
+        console.error('Error al cargar horarios:', error);
+        setHorariosOcupados([]);
+      }
+    };
+
+    cargarHorariosOcupados();
+  }, [fechaSeleccionada]);
+
   const getMinMaxFechas = () => {
     const hoy = new Date();
     const minFecha = hoy.toISOString().split('T')[0];
-    
     const max = new Date(hoy);
     max.setDate(max.getDate() + 30);
     const maxFecha = max.toISOString().split('T')[0];
-    
     return { minFecha, maxFecha };
   };
 
-  // Manejadores
   const handlePreReservar = (e: React.FormEvent) => {
     e.preventDefault();
     if (nombre && telefono && servicioSeleccionado && fechaSeleccionada && horaSeleccionada) {
@@ -65,11 +86,9 @@ export default function BookingPage() {
     }
   };
 
-  const handleConfirmarPago = async () => {
-    // Aquí iría la lógica de integración con pasarela de pago (Stripe, MercadoPago, etc.)
+  const handleConfirmarPago = () => {
     setMostrarModal(false);
     setReservaConfirmada(true);
-    // Resetear formulario tras unos segundos si deseas
   };
 
   const handleCargarComprobante = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,17 +116,10 @@ export default function BookingPage() {
     setMensaje('');
     
     try {
-      console.log('🚀 Iniciando proceso de confirmación de cita...');
-      
-      // Convertir imagen a base64 para guardarla
-      console.log('📸 Convirtiendo imagen a base64...');
       const imagenBase64 = await convertirImagenABase64(imagenComprobante);
-      console.log('✅ Imagen convertida a base64');
-
-      // Preparar datos de la reserva
       const reservaData = {
-        nombre: nombre,
-        telefono: telefono,
+        nombre,
+        telefono,
         servicio: servicioSeleccionado?.nombre || '',
         precioTotal: montoTotal,
         montoPagado: montoReserva,
@@ -118,18 +130,9 @@ export default function BookingPage() {
         fechaCreacion: new Date().toISOString()
       };
 
-      console.log('💾 Guardando en Firebase...');
-      console.log('Datos a guardar:', reservaData);
-      
-      // Guardar en Firebase
-      const reservaId = await saveReservation(reservaData);
-      
-      console.log('✅ Reserva guardada exitosamente con ID:', reservaId);
-      
-      // Mostrar pantalla de éxito
+      await saveReservation(reservaData);
       setCitaFinalizada(true);
     } catch (error: any) {
-      console.error('❌ Error completo:', error);
       const errorMsg = error?.message || 'Error desconocido';
       setMensaje(`Error al guardar: ${errorMsg}`);
     } finally {
@@ -137,413 +140,352 @@ export default function BookingPage() {
     }
   };
 
-  // --- Renderizado ---
-
+  // Pantalla de éxito
   if (citaFinalizada) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 text-white pt-32 pb-8 relative">
-        {/* Botón flotante de retroceso */}
+      <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500 rounded-full blur-[120px] animate-pulse"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-600 rounded-full blur-[120px]"></div>
+        </div>
+
         <button
           onClick={() => router.push('/')}
-          className="fixed top-20 left-4 z-40 bg-neutral-800 hover:bg-neutral-700 text-white p-3 rounded-full shadow-lg transition-all border border-neutral-700 hover:border-amber-500"
-          title="Volver al inicio"
+          className="fixed top-6 left-6 z-50 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white p-3 rounded-full transition-all duration-300 hover:scale-110 border border-white/10"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
         </button>
 
-        <div className="max-w-2xl w-full bg-neutral-900 border border-amber-500/30 p-8 rounded-2xl shadow-2xl shadow-amber-900/30 overflow-hidden relative">
-          {/* Elementos decorativos */}
-          <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500 blur-[120px] opacity-10 pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 w-40 h-40 bg-amber-500 blur-[120px] opacity-5 pointer-events-none"></div>
-          
-          <div className="relative z-10 text-center">
-            {/* Icono de éxito animado */}
-            <div className="text-6xl mb-6 inline-block">✅</div>
-            
-            <h2 className="text-3xl font-bold font-serif text-amber-500 mb-2">¡Cita Confirmada!</h2>
-            <p className="text-neutral-400 mb-8">Tu reserva ha sido procesada exitosamente</p>
-
-            {/* Resumen de Detalles */}
-            <div className="bg-neutral-800/50 border border-amber-500/20 rounded-lg p-6 mb-8 text-left space-y-4">
-              <div className="flex justify-between items-center pb-4 border-b border-neutral-700">
-                <span className="text-neutral-400">📝 Cliente</span>
-                <span className="text-white font-semibold">{nombre}</span>
-              </div>
-              <div className="flex justify-between items-center pb-4 border-b border-neutral-700">
-                <span className="text-neutral-400">✂️ Servicio</span>
-                <span className="text-white font-semibold">{servicioSeleccionado?.nombre}</span>
-              </div>
-              <div className="flex justify-between items-center pb-4 border-b border-neutral-700">
-                <span className="text-neutral-400">🕐 Hora</span>
-                <span className="text-white font-semibold">{horaSeleccionada}</span>
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-neutral-300">💰 Monto Pagado</span>
-                <span className="text-amber-400 font-bold text-lg">${montoReserva.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* Mensaje Importante */}
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-8">
-              <p className="text-amber-200 text-sm leading-relaxed">
-                <span className="font-semibold">🎉 ¡Gracias por tu confianza!</span><br/>
-                Te esperamos el día de tu cita. Si necesitas cambios, contáctanos por WhatsApp
-              </p>
-            </div>
-
-            {/* Botón */}
-            <button
-              onClick={() => {
-                setCitaFinalizada(false);
-                setReservaConfirmada(false);
-                setNombre('');
-                setTelefono('');
-                setServicioSeleccionado(null);
-                setHoraSeleccionada('');
-                setImagenComprobante(null);
-                setComprobanteCargado(false);
-              }}
-              className="w-full bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all duration-300"
-            >
-              Volver al Inicio
-            </button>
+        <div className="relative z-10 max-w-md w-full">
+          <div className="flex justify-center mb-8">
+            <div className="text-6xl">✓</div>
           </div>
+
+          <div className="text-center mb-8 space-y-2">
+            <h2 className="text-3xl font-bold text-white">¡Reserva Confirmada!</h2>
+            <p className="text-gray-400">Te esperamos pronto</p>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-6 space-y-4 mb-6">
+            <div className="flex justify-between text-sm border-b border-white/10 pb-3">
+              <span className="text-gray-400">Cliente</span>
+              <span className="text-white font-medium">{nombre}</span>
+            </div>
+            <div className="flex justify-between text-sm border-b border-white/10 pb-3">
+              <span className="text-gray-400">Servicio</span>
+              <span className="text-white font-medium">{servicioSeleccionado?.nombre}</span>
+            </div>
+            <div className="flex justify-between text-sm border-b border-white/10 pb-3">
+              <span className="text-gray-400">Hora</span>
+              <span className="text-white font-medium">{horaSeleccionada}</span>
+            </div>
+            <div className="flex justify-between text-base pt-2">
+              <span className="text-white">Pagado</span>
+              <span className="text-amber-400 font-bold">S/. {montoReserva.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setCitaFinalizada(false);
+              setReservaConfirmada(false);
+              setNombre('');
+              setTelefono('');
+              setServicioSeleccionado(null);
+              setHoraSeleccionada('');
+              setImagenComprobante(null);
+            }}
+            className="w-full bg-white text-black font-semibold py-4 rounded-full hover:bg-gray-100 transition-all duration-300 hover:scale-105"
+          >
+            Hacer otra reserva
+          </button>
         </div>
       </div>
     );
-  } else if (reservaConfirmada) {
+  }
+
+  // Pantalla de pago
+  if (reservaConfirmada) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 text-white pt-32 pb-8 relative">
-        {/* Botón flotante de retroceso */}
+      <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-1/3 left-1/3 w-96 h-96 bg-amber-500 rounded-full blur-[120px] animate-pulse"></div>
+        </div>
+
         <button
           onClick={() => router.push('/')}
-          className="fixed top-20 left-4 z-40 bg-neutral-800 hover:bg-neutral-700 text-white p-3 rounded-full shadow-lg transition-all border border-neutral-700 hover:border-amber-500"
-          title="Volver al inicio"
+          className="fixed top-6 left-6 z-50 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white p-3 rounded-full transition-all duration-300 hover:scale-110 border border-white/10"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
         </button>
 
-        <div className="max-w-2xl w-full bg-neutral-900 border border-amber-500/30 p-8 rounded-xl shadow-2xl shadow-amber-900/20">
-          <div className="text-amber-500 text-5xl mb-4 text-center">💳</div>
-          <h2 className="text-2xl font-bold mb-2 font-serif text-amber-500 text-center">Completar Pago</h2>
-          
-          <div className="space-y-6">
-            {/* Instrucciones de Pago */}
-            <div className="bg-neutral-800/50 border border-amber-500/20 p-6 rounded-lg">
-              <h3 className="text-lg font-semibold text-white mb-4">📱 Instrucciones de Pago</h3>
-              <ol className="space-y-3 text-neutral-300">
-                <li className="flex gap-3">
-                  <span className="text-amber-500 font-bold">1.</span>
-                  <span>Abre la app de Yape en tu teléfono</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-amber-500 font-bold">2.</span>
-                  <span>Envía <span className="text-white font-bold">${montoReserva.toFixed(2)}</span> al número: <span className="text-amber-500 font-bold text-lg">941 554 701</span></span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-amber-500 font-bold">3.</span>
-                  <span>Captura una foto del comprobante de pago</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-amber-500 font-bold">4.</span>
-                  <span>Carga la imagen en el formulario abajo</span>
-                </li>
-              </ol>
+        <div className="relative z-10 max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4">💳</div>
+            <h2 className="text-2xl font-bold text-white mb-2">Completar Pago</h2>
+            <p className="text-gray-400 text-sm">Envía el pago y confirma tu reserva</p>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-6 space-y-6">
+            <div className="space-y-4">
+              <div className="flex gap-4 items-start">
+                <div className="bg-amber-500 text-black font-bold w-8 h-8 rounded-full flex items-center justify-center shrink-0-sm">1</div>
+                <p className="text-gray-300 text-sm pt-1">Abre Yape en tu teléfono</p>
+              </div>
+              <div className="flex gap-4 items-start">
+                <div className="bg-amber-500 text-black font-bold w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm">2</div>
+                <p className="text-gray-300 text-sm pt-1">
+                  Envía <span className="text-white font-semibold">S/. {montoReserva.toFixed(2)}</span> al <span className="text-amber-400 font-semibold">941 554 701</span>
+                </p>
+              </div>
+              <div className="flex gap-4 items-start">
+                <div className="bg-amber-500 text-black font-bold w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm">3</div>
+                <p className="text-gray-300 text-sm pt-1">Captura y carga el comprobante abajo</p>
+              </div>
             </div>
 
-            {/* Resumen de Cita */}
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between pb-3 border-b border-neutral-700">
-                <span className="text-neutral-400">Cliente:</span>
-                <span className="text-white font-medium">{nombre}</span>
+            <div className="border-t border-white/10 pt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Cliente</span>
+                <span className="text-white">{nombre}</span>
               </div>
-              <div className="flex justify-between pb-3 border-b border-neutral-700">
-                <span className="text-neutral-400">Servicio:</span>
-                <span className="text-white font-medium">{servicioSeleccionado?.nombre}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Servicio</span>
+                <span className="text-white">{servicioSeleccionado?.nombre}</span>
               </div>
-              <div className="flex justify-between pb-3 border-b border-neutral-700">
-                <span className="text-neutral-400">Hora:</span>
-                <span className="text-white font-medium">{horaSeleccionada}</span>
-              </div>
-              <div className="flex justify-between pt-2 text-white font-bold">
-                <span>Monto a Pagar:</span>
-                <span className="text-amber-500">${montoReserva.toFixed(2)}</span>
+              <div className="flex justify-between font-semibold pt-2 border-t border-white/10">
+                <span className="text-white">Total</span>
+                <span className="text-amber-400">S/. {montoReserva.toFixed(2)}</span>
               </div>
             </div>
 
             {mensaje && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3">
-                <p className="text-red-300 text-sm">{mensaje}</p>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3">
+                <p className="text-red-400 text-sm text-center">{mensaje}</p>
               </div>
             )}
 
-            {/* Cargar Comprobante */}
             <div className="space-y-3">
-              <label className="block text-sm font-semibold text-neutral-300">📸 Cargar Comprobante de Pago</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleCargarComprobante}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-neutral-300 file:bg-amber-500 file:text-black file:border-0 file:py-2 file:px-4 file:rounded file:cursor-pointer file:font-semibold hover:file:bg-amber-400 transition-all"
-              />
-              {imagenComprobante ? (
-                <p className="text-sm text-green-400">✓ {imagenComprobante.name} - Listo para confirmar</p>
-              ) : (
-                <p className="text-sm text-yellow-400">⚠ Por favor carga una imagen del comprobante</p>
-              )}
+              <label className="block">
+                <div className="border-2 border-dashed border-white/20 hover:border-amber-500/50 rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 hover:bg-white/5">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCargarComprobante}
+                    className="hidden"
+                  />
+                  <div className="text-4xl mb-2">📸</div>
+                  <p className="text-white text-sm font-medium">
+                    {imagenComprobante ? imagenComprobante.name : 'Cargar comprobante'}
+                  </p>
+                  {!imagenComprobante && (
+                    <p className="text-gray-500 text-xs mt-1">Toca para seleccionar imagen</p>
+                  )}
+                </div>
+              </label>
             </div>
 
-            {/* Botones */}
-            <div className="flex gap-4 pt-4">
+            <div className="flex gap-3 pt-4">
               <button
                 onClick={() => {
                   setReservaConfirmada(false);
                   setImagenComprobante(null);
                 }}
-                className="flex-1 bg-neutral-700 text-white py-3 rounded-lg hover:bg-neutral-600 transition-all font-semibold"
+                className="flex-1 bg-white/5 text-white py-4 rounded-full hover:bg-white/10 transition-all duration-300 font-medium"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmarReserva}
                 disabled={!imagenComprobante || cargando}
-                className="flex-1 bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all disabled:bg-neutral-600 disabled:text-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 bg-amber-500 text-black font-semibold py-4 rounded-full hover:bg-amber-400 transition-all duration-300 disabled:bg-gray-600 disabled:text-gray-400 hover:scale-105 disabled:scale-100"
               >
-                {cargando ? (
-                  <>
-                    <span className="animate-spin">⏳</span>
-                    Guardando...
-                  </>
-                ) : (
-                  'Confirmar Cita'
-                )}
+                {cargando ? 'Guardando...' : 'Confirmar'}
               </button>
             </div>
-
-            <p className="text-xs text-neutral-500 text-center">
-              La cita solo se reservará después de cargar el comprobante de pago
-            </p>
           </div>
         </div>
       </div>
     );
   }
 
+  // Pantalla principal
   return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 font-sans text-neutral-200 pt-32 relative">
-      {/* Botón flotante de retroceso */}
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      <div className="fixed inset-0 opacity-10">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500 rounded-full blur-[150px] animate-pulse"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-600 rounded-full blur-[150px]"></div>
+      </div>
+
       <button
         onClick={() => router.push('/')}
-        className="fixed top-20 left-4 z-40 bg-neutral-800 hover:bg-neutral-700 text-white p-3 rounded-full shadow-lg transition-all border border-neutral-700 hover:border-amber-500"
-        title="Volver al inicio"
+        className="fixed top-6 left-6 z-50 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white p-3 rounded-full transition-all duration-300 hover:scale-110 border border-white/10"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
       </button>
 
-      <div className="max-w-4xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Columna Izquierda: Formulario */}
-        <div className="bg-neutral-900 p-8 rounded-2xl border border-neutral-800 shadow-xl">
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold font-serif text-white tracking-wide">
-              THE STYLO <span className="text-amber-500">CAVE</span>
-            </h1>
-            <p className="text-xs text-neutral-500 uppercase tracking-widest mt-1">Estilo & Elegancia</p>
-          </header>
+      <div className="relative z-10 max-w-md mx-auto px-4 py-8 pt-20 pb-16">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-bold mb-2">
+            THE STYLO <span className="text-amber-500">CAVE</span>
+          </h1>
+          <p className="text-gray-400 text-sm">Reserva tu cita</p>
+        </div>
 
-          <form onSubmit={handlePreReservar} className="space-y-6">
-            {/* Input Nombre */}
-            <div>
-              <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">Tu Nombre</label>
-              <input
-                type="text"
-                required
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej. Camilo Borja"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
-              />
+        <form onSubmit={handlePreReservar} className="space-y-6">
+          <div>
+            <label className="block text-gray-400 text-xs uppercase mb-2 font-medium">Nombre</label>
+            <input
+              type="text"
+              required
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Tu nombre completo"
+              className="w-full bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-4 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-all duration-300"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-400 text-xs uppercase mb-2 font-medium">Teléfono</label>
+            <input
+              type="tel"
+              required
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              placeholder="Ej: 941554701"
+              className="w-full bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-4 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-all duration-300"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-400 text-xs uppercase mb-3 font-medium">Selecciona tu corte</label>
+            <div className="space-y-3">
+              {SERVICIOS.map((servicio) => (
+                <div
+                  key={servicio.id}
+                  onClick={() => setServicioSeleccionado(servicio)}
+                  className={`cursor-pointer p-4 rounded-2xl border transition-all flex justify-between items-center hover:scale-[1.02] ${
+                    servicioSeleccionado?.id === servicio.id
+                      ? 'bg-amber-500 border-amber-500 text-black'
+                      : 'bg-white/5 border-white/10 hover:border-white/20 backdrop-blur-sm'
+                  }`}
+                >
+                  <span className="font-medium">{servicio.nombre}</span>
+                  <span className="font-bold">S/. {servicio.precio}</span>
+                </div>
+              ))}
             </div>
+          </div>
 
-            {/* Input Teléfono */}
-            <div>
-              <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">Tu Teléfono / WhatsApp</label>
-              <input
-                type="tel"
-                required
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                placeholder="Ej. 941554701"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
-              />
-            </div>
+          <div>
+            <label className="block text-gray-400 text-xs uppercase mb-2 font-medium">Fecha</label>
+            <input
+              type="date"
+              required
+              value={fechaSeleccionada}
+              onChange={(e) => setFechaSeleccionada(e.target.value)}
+              min={getMinMaxFechas().minFecha}
+              max={getMinMaxFechas().maxFecha}
+              className="w-full bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl px-4 py-4 text-white focus:outline-none focus:border-amber-500 transition-all duration-300 scheme-dark"
+            />
+          </div>
 
-            {/* Selección de Servicio */}
-            <div>
-              <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">Selecciona tu corte</label>
-              <div className="grid grid-cols-1 gap-3">
-                {SERVICIOS.map((servicio) => (
-                  <div
-                    key={servicio.id}
-                    onClick={() => setServicioSeleccionado(servicio)}
-                    className={`cursor-pointer p-4 rounded-lg border transition-all flex justify-between items-center ${
-                      servicioSeleccionado?.id === servicio.id
-                        ? 'bg-amber-500/10 border-amber-500 text-amber-500'
-                        : 'bg-neutral-800 border-neutral-700 hover:border-neutral-500 text-neutral-300'
-                    }`}
-                  >
-                    <span className="font-medium">{servicio.nombre}</span>
-                    <span className="font-bold">${servicio.precio}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Selección de Fecha */}
-            <div>
-              <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">📅 Selecciona tu Fecha</label>
-              <input
-                type="date"
-                required
-                value={fechaSeleccionada}
-                onChange={(e) => setFechaSeleccionada(e.target.value)}
-                min={getMinMaxFechas().minFecha}
-                max={getMinMaxFechas().maxFecha}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
-              />
-              <p className="text-xs text-neutral-500 mt-2">Puedes agendar hasta 30 días adelante</p>
-            </div>
-
-            {/* Selección de Horario */}
-            <div>
-              <label className="block text-xs uppercase text-neutral-500 mb-2 font-semibold">Horario Disponible</label>
-              <div className="grid grid-cols-3 gap-2">
-                {HORARIOS.map((hora) => (
+          <div>
+            <label className="block text-gray-400 text-xs uppercase mb-3 font-medium">Horario</label>
+            <div className="grid grid-cols-3 gap-2">
+              {HORARIOS.map((hora) => {
+                const estaOcupado = horariosOcupados.includes(hora);
+                return (
                   <button
                     key={hora}
                     type="button"
-                    onClick={() => setHoraSeleccionada(hora)}
-                    className={`p-2 text-sm rounded-md border transition-all ${
+                    onClick={() => !estaOcupado && setHoraSeleccionada(hora)}
+                    disabled={estaOcupado}
+                    className={`py-3 text-sm rounded-xl border transition-all hover:scale-105 ${
                       horaSeleccionada === hora
                         ? 'bg-white text-black border-white font-bold'
-                        : 'bg-transparent border-neutral-700 text-neutral-400 hover:border-neutral-500'
+                        : estaOcupado
+                        ? 'bg-red-500/20 border-red-500/50 text-red-300 cursor-not-allowed opacity-50'
+                        : 'bg-white/5 border-white/10 hover:border-white/20 backdrop-blur-sm'
                     }`}
                   >
                     {hora}
+                    {estaOcupado && <span className="text-xs block">Ocupado</span>}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
-
-          </form>
-        </div>
-
-        {/* Columna Derecha: Resumen (Sticky) */}
-        <div className="flex flex-col justify-between h-full space-y-6">
-          <div className="bg-neutral-900 p-8 rounded-2xl border border-neutral-800 shadow-xl h-full flex flex-col relative overflow-hidden">
-            {/* Elemento decorativo de fondo */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500 blur-[100px] opacity-10 pointer-events-none"></div>
-
-            <h3 className="text-xl font-serif text-white mb-6 border-b border-neutral-800 pb-4">
-              Resumen de la Cita
-            </h3>
-
-            <div className="space-y-4 grow">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-neutral-500">Cliente</span>
-                <span className="text-white font-medium">{nombre || '---'}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-neutral-500">Teléfono</span>
-                <span className="text-white font-medium">{telefono || '---'}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-neutral-500">Servicio</span>
-                <span className="text-white font-medium text-right">{servicioSeleccionado?.nombre || 'Seleccione un corte'}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-neutral-500">Fecha</span>
-                <span className="text-white font-medium">{fechaSeleccionada ? new Date(fechaSeleccionada).toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : '---'}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-neutral-500">Hora</span>
-                <span className="text-white font-medium">{horaSeleccionada || '---'}</span>
-              </div>
-            </div>
-
-            {/* Área de Precios */}
-            <div className="mt-8 pt-6 border-t border-dashed border-neutral-700 space-y-3">
-              <div className="flex justify-between items-center text-neutral-400">
-                <span>Precio del Corte</span>
-                <span>${montoTotal.toFixed(2)}</span>
-              </div>
-              
-              <div className="flex justify-between items-center text-neutral-400">
-                <span>Monto a Reservar (50%)</span>
-                <span className="text-amber-500 font-bold">${montoReserva.toFixed(2)}</span>
-              </div>
-
-              <div className="flex justify-between items-center text-white font-bold text-lg border-t border-neutral-700 pt-3 mt-3">
-                <span>Total a Pagar</span>
-                <span className="text-amber-500">${montoReserva.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* Botón de Pre-Reserva */}
-            <button
-              onClick={handlePreReservar}
-              disabled={!nombre || !telefono || !servicioSeleccionado || !fechaSeleccionada || !horaSeleccionada || cargando}
-              className="mt-8 w-full bg-amber-500 text-black font-bold py-3 rounded-lg hover:bg-amber-400 transition-all disabled:bg-neutral-700 disabled:text-neutral-500 disabled:cursor-not-allowed"
-            >
-              CONFIRMAR PRE-RESERVA
-            </button>
           </div>
-        </div>
+
+          {servicioSeleccionado && (
+            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Servicio</span>
+                <span>{servicioSeleccionado.nombre}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Precio total</span>
+                <span>S/. {montoTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-white/10 pt-3">
+                <span className="text-gray-400">Reserva (50%)</span>
+                <span className="text-amber-400 font-bold">S/. {montoReserva.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={!nombre || !telefono || !servicioSeleccionado || !fechaSeleccionada || !horaSeleccionada}
+            className="w-full bg-amber-500 text-black font-bold py-4 rounded-full hover:bg-amber-400 transition-all duration-300 disabled:bg-gray-700 disabled:text-gray-500 hover:scale-105 disabled:scale-100"
+          >
+            Continuar con la reserva
+          </button>
+        </form>
       </div>
 
-      {/* Modal de Confirmación de Pago */}
       {mostrarModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-neutral-900 border border-amber-500/30 p-8 rounded-xl max-w-md w-full shadow-2xl shadow-amber-900/20">
-            <h2 className="text-2xl font-bold font-serif text-white mb-4">Confirmar Pre-Reserva</h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 max-w-sm w-full">
+            <h2 className="text-2xl font-bold mb-6 text-center">Confirmar Reserva</h2>
             
-            <div className="space-y-3 mb-6 text-sm">
-              <div className="flex justify-between">
-                <span className="text-neutral-400">Cliente:</span>
-                <span className="text-white font-medium">{nombre}</span>
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Cliente</span>
+                <span>{nombre}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-400">Servicio:</span>
-                <span className="text-white font-medium">{servicioSeleccionado?.nombre}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Servicio</span>
+                <span>{servicioSeleccionado?.nombre}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-400">Hora:</span>
-                <span className="text-white font-medium">{horaSeleccionada}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Hora</span>
+                <span>{horaSeleccionada}</span>
               </div>
-              <div className="border-t border-neutral-700 pt-3 mt-3 flex justify-between font-bold">
-                <span className="text-neutral-300">Monto a Reservar:</span>
-                <span className="text-amber-500">${montoReserva.toFixed(2)}</span>
+              <div className="flex justify-between font-bold pt-3 border-t border-white/20">
+                <span>A pagar</span>
+                <span className="text-amber-400">S/. {montoReserva.toFixed(2)}</span>
               </div>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={() => setMostrarModal(false)}
-                className="flex-1 bg-neutral-700 text-white py-2 rounded-lg hover:bg-neutral-600 transition-all"
+                className="flex-1 bg-white/10 py-3 rounded-full hover:bg-white/20 transition-all duration-300"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmarPago}
-                className="flex-1 bg-amber-500 text-black font-bold py-2 rounded-lg hover:bg-amber-400 transition-all"
+                className="flex-1 bg-amber-500 text-black font-bold py-3 rounded-full hover:bg-amber-400 transition-all duration-300 hover:scale-105"
               >
-                Pagar ${montoReserva.toFixed(2)}
+                Confirmar
               </button>
             </div>
           </div>
